@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Enum for user roles
+enum UserRole {
+  MEMBER
+  EXPERT_INDIVIDUAL
+  EXPERT_BUSINESS
+  ADMIN
+}
+
+model User {
+  id           String     @id @default(cuid()) @map("_id") @db.ObjectId
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  email        String     @unique(map: "User.email_unique")
+  firstName    String
+ 
+  role         String     @default("MEMBER")
+  team         String?
+  profile        Profile?                               // An optional profile link, primarily for experts and businesses to provide additional information.
+  appointments   Appointment[]                          // A list of appointments associated with the user, either as a client or as an expert.
+  reviews        Review[]                               // Reviews written by the user or received by the user (if an expert).
+  financialData  FinancialData[] 
+
+  //@@index([team])
+}
+
+// Appointment bookings
+model Appointment {
+  id           String     @id @default(cuid()) @map("_id") @db.ObjectId
+  dateTime   DateTime
+  status     AppointmentStatus
+  user       User     @relation(fields: [userId], references: [id],onDelete: Cascade,onUpdate: Cascade)
+  userId     String @db.ObjectId
+  // expert     Profile  @relation(fields: [expertId], references: [id])
+  // expertId   String
+}
+
+// Enum for appointment status
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+// Financial data linked to a user
+model FinancialData {
+  id           String     @id @default(cuid()) @map("_id") @db.ObjectId
+  income    Json     // Use JSON to store flexible income data
+  expenses  Json     // Use JSON to store flexible expense data
+  month     String   // Format: YYYY-MM
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @db.ObjectId
+}
+
+// Reviews for experts or businesses
+model Review {
+  id           String     @id @default(cuid()) @map("_id") @db.ObjectId
+  profileId   String      @db.ObjectId
+  rating      Int     // Scale of 1-5
+  comment     String?
+  user        User        @relation(fields: [userId], references: [id])
+  userId      String      @db.ObjectId
+  profile     Profile     @relation(fields: [profileId], references: [id])
+}
+
+
+model Profile {
+  id           String     @id @default(cuid()) @map("_id") @db.ObjectId                                // Associates the profile with a specific user
+  name        String                               // The name of the individual expert or business
+  description String?                              // A brief description or bio
+  expertise   String[]                             // Areas of expertise, e.g., debt management, investment strategy
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String    @unique @db.ObjectId// Links back to the User model
+  reviews     Review[]                             // Reviews related to this expert or business
+  // appointments Appointment[]                       // Appointments booked with this expert or business
+}
